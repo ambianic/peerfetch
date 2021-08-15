@@ -10,3 +10,4 @@ HTML fetch() over WebRTC datachannel. Access directly IoT REST APIs from browser
 # Used by
 
 - [Ambianic UI PWA](https://github.com/ambianic/ambianic-ui)
+- [Ambianic Edge](https://github.com/ambianic/ambianic-edge)
