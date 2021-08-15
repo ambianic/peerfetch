@@ -1,5 +1,5 @@
 # peerfetch
-HTML fetch() over WebRTC datachannel. Access directly IoT REST APIs from browser apps without cloud data tunneling.
+HTML fetch() over WebRTC datachannel. Access directly IoT REST APIs from browser apps without cloud data tunneling. See [this blog post](https://webrtchacks.com/private-home-surveillance-with-the-webrtc-datachannel/) for a technical discussion and examples.
 
 # Related Repos
 
