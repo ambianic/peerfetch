@@ -1,7 +1,7 @@
 # peerfetch
 [HTML 5 fetch()](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch) implementation over WebRTC datachannel. Access directly IoT REST APIs from browser apps without cloud data tunneling. See [this blog post](https://webrtchacks.com/private-home-surveillance-with-the-webrtc-datachannel/) for a technical discussion and examples.
 
-:warning: :construction: **WORK IN PROGRESS** :construction: :warning: 
+:warning: :construction: **MIGRATING CODE TO THIS REPO IN PROGRESS** :construction: :warning: 
 
 This library has been used as [integral part of the `ambianic-ui`](https://github.com/ambianic/ambianic-ui/blob/master/src/remote/peer-fetch.js) project for several years. It has reached a reasonable state of stability that we consider ready for a standalone package. We are in the process of extracting it to this repo as a standalong library.
 
