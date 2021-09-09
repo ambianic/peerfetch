@@ -1,5 +1,11 @@
+
+:warning: :construction: **MIGRATING CODE IN PROGRESS** :construction: :warning: 
+
+The `peerfetch` library has been used as integral part of [`ambianic-ui`](https://github.com/ambianic/ambianic-ui/blob/master/src/remote/peer-fetch.js) and [ambianic-edge](https://github.com/ambianic/peerjs-python/blob/master/src/peerjs/ext/http_proxy.py) for several years. It has reached a reasonable state of stability that we consider ready for a standalone package. We are in the process of extracting and migrating its code to this repo with the intention of packaging and publishing it independently.
+
 # peerfetch
-[HTML5 fetch()](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch) implementation over WebRTC datachannel. Allows access directly from a web browser to IoT REST APIs behind firewall. No custom VPN setup and no cloud data tunneling. See [this blog post](https://webrtchacks.com/private-home-surveillance-with-the-webrtc-datachannel/) for a technical discussion and examples.
+
+[HTML5 fetch()](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch) implementation over WebRTC datachannel. Allows access directly from a web browser to IoT OpenAPI REST endpoints behind firewall. No custom VPN setup and no cloud data tunneling. See [this blog post](https://webrtchacks.com/private-home-surveillance-with-the-webrtc-datachannel/) for a technical discussion and examples.
 
 From a web app's perspective, this is the code to access the REST API hosted on the remote edge device:
 
@@ -35,14 +41,32 @@ Web view components use `peerfetch` to grab and render data as they would with a
 
 ```
 
+# Project background
 
-:warning: :construction: **MIGRATING CODE TO THIS REPO IN PROGRESS** :construction: :warning: 
+It appears to be a foregone conclusion nowadays that all data should be stored in the cloud and all web services should be served by public cloud APIs. This works well for a great deal of applications, but not all. As it turns out the cloud-in-the-middle approach leads to substantial violations of user data privacy. There are widely publicised breaches in [big tech cloud services](https://blog.storagecraft.com/7-infamous-cloud-security-breaches/), [consumer security cameras](https://www.safewise.com/blog/latest-home-security-breaches-and-responses/) and even [enterprise grade systems](https://www.bloomberg.com/news/articles/2021-03-09/hackers-expose-tesla-jails-in-breach-of-150-000-security-cams).
 
-This library has been used as [integral part of the `ambianic-ui`](https://github.com/ambianic/ambianic-ui/blob/master/src/remote/peer-fetch.js) project for several years. It has reached a reasonable state of stability that we consider ready for a standalone package. We are in the process of extracting it to this repo as a standalong library.
+Fortunately peer-to-peer web standards (WebRTC) have evolved sufficiently to solve a big chunk of these issues. It is no longer mandatory to use a cloud service in the middle of data transfer and data storage. It is not even necessary to setup clunky custom VPN services in order to secure end to end connectivity between end points.
+
+WebRTC is already widely used for video calls and meetings. Although p2p media is the most popular use of WebRTC, there is also a less popular WebRTC API for data transfer which also works very well and is [supported by all modern major browsers](https://developer.mozilla.org/en-US/docs/Web/API/RTCDataChannel#browser_compatibility). 
+
+`peerfetch` uses WebRTC DataChannel to emulate p2p HTTP. It allows both ends of a connection to act as REST clients and REST servers. Both end points can be behind different firewalls. Neither end point has to know ahead of time the exact host name or IP address of the other one in order to establish an http connection. 
+
+Peers can be offline or online. Webpeer manages connectivity, disconnect, and reconnect behind the scenes. App devs can think of end points as regular OpenAPI functions. 
+
+`peerfetch` builds on the code and lessons learned from previous projects such as [PeerJS](https://peerjs.com/) and [simple-peer](https://github.com/feross/simple-peer). It also leverages the growing ecosystem of standalone open source WebRTC implementations such as [aiortc for Python](https://github.com/aiortc/aiortc) and [pion for Go](https://github.com/pion/webrtc).
+
+
+# Use cases:
+
+- Kiosk apps that run in retail stores can be offline capable and able to serve data and media as well as fetch remote APIs when online. 
+- IoT devices can talk to each other without data flowing through cloud services. 
+- Mobile / web apps (smart home for example) can check on home cameras without any footage flowing through third party cloud servers. 
+- Web apps can share data directly (files, notes, photos) without flowing it through cloud servers. Think airdrop type functionality but without need for proprietary hardware or system software. All based on standard web technology available in every browser. 
+- ML models can train on local user data and share learned states directly with each other. No need to depend on large centralized cloud ML training resources. Think Federated Learning. 
 
 # Related Repos
 
-- `peerfetch`: Browser client library in JavaScript. Allows browser apps to directly access IoT device REST APIs. For example accessing your home smart camera directly from your desktop or mobile phone without any footage going through cloud servers.
+- `peerfetch-client`: Browser client library in JavaScript. Allows browser apps to directly access IoT device REST APIs. For example accessing your home smart camera directly from your desktop or mobile phone without any footage going through cloud servers.
 - `peerfetch-proxy`: WebRTC to REST API proxy deployed on IoT devices. Distributed as a python package and a docker image. Allows remote web browser apps to securely access device local REST APIs. Builds on top of the [`peerjs-python`](https://github.com/ambianic/peerjs-python) package.
 - [`ambianic-pnp`](https://github.com/ambianic/ambianic-pnp): Plug-and-play signaling server with minimal emphimeral state. Allows browser clients to find IoT devices in order to establish direct data connection. No persisted storage. Clients regularly re-register and update state. In case of a server crash, state is restored within seconds of restart. A Node.js package.
 
