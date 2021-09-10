@@ -5,7 +5,7 @@ The `peerfetch` library has been used as integral part of [`ambianic-ui`](https:
 
 # peerfetch
 
-[HTML5 fetch()](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch) implementation over WebRTC datachannel. Allows access directly from a web browser to IoT OpenAPI REST endpoints behind firewall. No custom VPN setup and no cloud data tunneling. See [this blog post](https://webrtchacks.com/private-home-surveillance-with-the-webrtc-datachannel/) for a technical discussion and examples.
+[HTML5 fetch()](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch) implementation over WebRTC datachannel. Allows access directly from a web browser to IoT OpenAPI REST endpoints behind firewall. No custom VPN setup that requires sysadmin access. No cloud data tunneling. See [this blog post](https://webrtchacks.com/private-home-surveillance-with-the-webrtc-datachannel/) for a technical discussion and examples. Works in browser, NodeJS, Python, Go and other runtimes that support WebRTC.
 
 From a web app's perspective, this is the code to access the REST API hosted on the remote edge device:
 
