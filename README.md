@@ -1,5 +1,5 @@
 
-:warning: :construction: **MIGRATING CODE IN PROGRESS** :construction: :warning: 
+:warning: :construction: **MIGRATING CODE TO THIS REPO IN PROGRESS** :construction: :warning: 
 
 The `peerfetch` library has been used as integral part of [`ambianic-ui`](https://github.com/ambianic/ambianic-ui/blob/master/src/remote/peer-fetch.js) and [ambianic-edge](https://github.com/ambianic/peerjs-python/blob/master/src/peerjs/ext/http_proxy.py) for several years. It has reached a reasonable state of stability that we consider ready for a standalone package. We are in the process of extracting and migrating its code to this repo with the intention of packaging and releasing it independently. You can watch this repo for release notifications.
 
