@@ -5,7 +5,7 @@ The `peerfetch` library has been used as integral part of [`ambianic-ui`](https:
 
 # peerfetch
 
-[HTML5 fetch()](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch) implementation over WebRTC datachannel. Allows direct secure access from a web browser to edge devices (IoT or servers) hidden behind layers of firewalls. 
+Peer-to-peer HTTP over WebRTC. Implements [HTML5 fetch()](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch) over WebRTC DataChannel. Allows direct secure access from a web browser to edge devices (IoT or servers) hidden behind a firewall. 
 
 - Excuting in safe application space (not `sudo`)
 - End to end encryption
