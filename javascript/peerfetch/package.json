@@ -1,0 +1,45 @@
+{
+  "name": "peerfetch",
+  "version": "0.0.1",
+  "description": "PeerFetch client. Implements HTML fetch() over WebRTC DataChannel.",
+  "main": "index.js",
+  "directories": {
+    "src": "src",
+    "test": "tests"
+  },
+  "scripts": {
+    "prepare": "husky install",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ambianic/peerfetch.git"
+  },
+  "keywords": [
+    "html",
+    "fetch()",
+    "iot",
+    "webrtc",
+    "p2p"
+  ],
+  "author": "Ivelin Ivanov",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/ambianic/peerfetch/issues"
+  },
+  "homepage": "https://github.com/ambianic/peerfetch#readme",
+  "devDependencies": {
+    "@babel/preset-env": "^7.15.8",
+    "@babel/preset-typescript": "^7.15.0",
+    "@types/jest": "^27.0.2",
+    "@types/node": "^16.10.3",
+    "babel-jest": "^27.2.4",
+    "jest": "^27.2.4",
+    "ts-jest": "^27.0.5",
+    "tslint": "^5.12.1",
+    "typescript": "^3.9.10"
+  },
+  "dependencies": {
+    "peerjs": "^1.3.2"
+  }
+}
