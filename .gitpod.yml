@@ -1,0 +1,24 @@
+
+image:
+  file: .gitpod.Dockerfile
+
+tasks:
+  - init: |
+      npm install
+      npm run prepare
+      npm update
+      npm audit fix
+  - command: |
+      echo "peerfetch JavaScript work dir:"
+      cd javascript/peerfetch
+  - command: |
+      echo "peerfetch Python work dir:"
+      cd python/peerfetch
+
+ports:
+  - port: 8080
+
+github:
+  prebuilds:
+    addComment: true
+    addBadge: true
