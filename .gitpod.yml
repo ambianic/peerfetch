@@ -4,16 +4,25 @@ image:
 
 tasks:
   - init: |
+      echo "Gitpod init. Setting up peerjfetch dev environment."
       npm install
       npm run prepare
       npm update
       npm audit fix
-  - command: |
-      echo "peerfetch JavaScript work dir:"
-      cd javascript/peerfetch
-  - command: |
-      echo "peerfetch Python work dir:"
+    command: |
+      echo "peerfetch Python dev environment:"
       cd python/peerfetch
+      pyenv global system
+      pip3 install -e ./src
+      echo "Running the peerjfetch Python testsuite:"
+      python3 -m pytest --cov=peerjs --cov-report=term tests/
+      echo "To start peerjs proxy service:"
+      echo "python3 -m peerjs.ext.http_proxy"
+  - command: |
+      echo "peerfetch JavaScript:"
+      cd javascript/peerfetch
+      echo "Running peerfetch JavaScript testsuite:"
+      npm run test
 
 ports:
   - port: 8080
