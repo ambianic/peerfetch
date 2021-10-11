@@ -1,28 +1,220 @@
+import Peer from 'peerjs'
+
+enum ConnectionStatus {
+  DISCONNECTED,
+  CONNECTING,
+  CONNECTED,
+  ERROR,
+}
+
 /**
  * Implements HTML Fetch API over p2p WebRTC DataChannel.
- * Provides convenience HTTP methods similar to axios.
+ * Adds a few convenience methods for common HTTP ops.
  *
  * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/fetch fetch}
- * @see {@link https://github.com/axios/axios axious}
  *
 */
 export class PeerFetch {
-  constructor (dataConnection: RTCData) {
-    // the DataConnection that PeerFetch rides on
-    this._dataConnection = dataConnection
-    // Map of pending requests awaiting responses
-    this._requestMap = new Map()
-    // incrementing counter to the next available
-    // unused ticket number
-    // Each request is assigned a ticket
-    // which can be used to claim the response
-    this._nextAvailableTicket = 0
-    // points to the next ticket assigned to a pending request
-    // Requests are processed in FIFO order.
-    this._nextTicketInLine = 0
-    this._configureDataConnection()
-    this._schedulePing()
+
+  /**
+   * A PeerJS instance that provides lower layer p2p connectivity API
+   */
+  private _peer: Peer
+
+  /**
+   * Configuration parameters for the p2p network connection.
+   */
+  private _config: Peer.PeerJSOption
+
+  /**
+   * An identifier of this PeerJS instance that is unique within the p2p network that it participates.
+   * It is assigned by the signaling server. Similar to an http session ID.
+   */
+  private _myPeerId?: string
+
+  /**
+   * Peer ID of the remote node that will proxy http requests
+   */
+  private _remotePeerID?: string
+
+  /**
+   * Tracks current status of the connection to the signaling server
+   */
+  private _signalingConnectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED
+
+  /**
+   * Tracks current status of the connection to the remote peer
+   */
+  private _peerConnectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED
+
+  /**
+   * The current peer data connection that http requests ride on.
+   * Currently a single peer data connection is managed per PeerFetch instance.
+   */
+  private _dataConnection?: Peer.DataConnection
+
+  /**
+   * Map of pending HTTP requests
+   */
+  _requestMap: Map<string, any> = new Map()
+
+  /**
+   * Ticketing enforce a strict order or processing for pending http requests and corresponding responses.
+   * Each async request from client code draws a new ticket.
+   * Tickets are processed in the sequential monotonic order that they are drawn. 
+   * Once a request is fully processed, its ticket is burned and the next ticket is processed.
+   * A request ticket is not fully processed until the corresponding final HTTP response is received.
+   *
+   * /
+    
+  /** 
+   * Incrementing monotonic counter pointing to the next available(unused) ticket number.
+   */
+  private _nextAvailableTicket = 0
+
+  /**
+   * Points to the next ticket assigned to a pending request
+   * Requests are processed in FIFO order.
+   */
+  private _nextTicketInLine = 0
+
+  /**
+   * 
+   * @param config: PeerOptions provide information such as signaling server host and port.
+   */
+  constructor (config: Peer.PeerJSOption) {
+    this._signalingConnectionStatus = ConnectionStatus.CONNECTING
+    this._config = config
   }
+
+  async setup(remotePeerID: string) {
+    this._signalingConnectionStatus = ConnectionStatus.CONNECTING
+    this._remotePeerID = remotePeerID
+    let newPeer = new Peer(this._config)
+    this._peer = newPeer
+    // return a promise that will be resolved when the peer connection is ready.
+    const setupReady = new Promise((resolve, reject) => {
+      this._setSignalingServiceConnectionHandlers(newPeer, resolve, reject)
+    })
+    return setupReady
+  }
+
+  private _setSignalingServiceConnectionHandlers (peer: Peer, setupResolve: Function, setupReject: Function) {
+    // isSetupResolved indicates whether the setupReady promise has been resolved or rejected
+    // to ensure that we resolve/reject the promise only once.
+    let isSetupResolved = false
+    peer.on('open', (id: string) => {
+      // signaling server connection established
+      if (!peer.id && this._myPeerId) {
+        // Workaround for peer.reconnect deleting previous id
+        console.log('Received null id from peer open.')
+        peer.id = this._myPeerId
+      } else {
+        if (this._myPeerId !== peer.id) {
+          console.log(
+            'Signaling server returned new peerID. ',
+            'Old PeerID:', this._myPeerId, 
+            'New PeerID: ', peer.id
+          )
+        }
+      }
+      this._signalingConnectionStatus = ConnectionStatus.CONNECTED
+      console.debug('Connected to signaling server; myPeerId: ', peer.id)
+      isSetupResolved = true // only as far as signaling is concerned
+      // The final setup resolution or rejection now depends on the next step: peer connection setup.
+      })
+    peer.on('disconnected', () => {
+      this._signalingConnectionStatus = ConnectionStatus.DISCONNECTED
+      const msg = 'Disconnected from signaling server.'
+      console.debug(msg)
+      if (!isSetupResolved) {
+        isSetupResolved = true
+        setupReject(new Error(msg))
+      }
+    })
+    peer.on('close', () => {
+      this._signalingConnectionStatus = ConnectionStatus.DISCONNECTED
+      const msg = 'Socket connection to signaling server closed.'
+      console.debug(msg)
+      if (!isSetupResolved) {
+        isSetupResolved = true
+        setupReject(new Error(msg))
+      }
+    })
+    peer.on('error', (err) => {
+      this._signalingConnectionStatus = ConnectionStatus.ERROR
+      const msg = 'Error in signaling server connection.'
+      console.debug(msg)
+      if (!isSetupResolved) {
+        isSetupResolved = true
+        setupReject(new Error(msg))
+      }
+    })
+    // remote peer tries to initiate connection
+    peer.on('connection', (peerConnection) => {
+      console.debug('Remote peer trying to initiate a connection')
+      isSetupResolved = true // only as far as signaling is concerned
+      // The final setup resolution or rejection now depends on the next step: peer connection setup.
+      this._setPeerConnectionHandlers(peerConnection, setupResolve, setupReject)
+    })
+  }
+  
+  private _setPeerConnectionHandlers (peerConnection: Peer.DataConnection, setupResolve: Function, setupReject: Function) {
+    // isSetupResolved indicates whether the setupReady promise has been resolved or rejected
+    // to ensure that we resolve/reject the promise only once.
+    let isSetupResolved = false    
+    // setup connection progress callbacks
+    peerConnection.on('open', () => {
+      this._peerConnectionStatus = ConnectionStatus.CONNECTED
+      this._dataConnection = peerConnection
+      // Map of pending requests awaiting responses
+      this._requestMap = new Map()
+      // incrementing counter to the next available
+      // unused ticket number
+      // Each request is assigned a ticket
+      // which can be used to claim the response
+      this._nextAvailableTicket = 0
+      // points to the next ticket assigned to a pending request
+      // Requests are processed in FIFO order.
+      this._nextTicketInLine = 0
+      this._configureDataConnection()
+      this._schedulePing()
+      console.debug('Peer DataConnection is now open.')
+      isSetupResolved = true
+      setupResolve()
+    })
+  
+    peerConnection.on('close', () => {
+      this._peerConnectionStatus = ConnectionStatus.DISCONNECTED
+      const msg = 'Peer DataConnection closed.'
+      console.debug(msg)
+      if (!isSetupResolved) {
+        isSetupResolved = true
+        setupReject(new Error(msg))
+      }      
+    })
+  
+    peerConnection.on('error', (err) => {
+      this._peerConnectionStatus = ConnectionStatus.ERROR
+      this._peerConnection = peerConnection
+      console.debug('Peer DataConnection closed.')
+
+      clearTimeout(hungupConnectionResetTimer)
+      commit(USER_MESSAGE, 'Error in connection to remote peer ID', peerConnection.peer)
+      console.info(`Error in connection to remote peer ID ${peerConnection.peer}`, err)
+      // schedule an async HANDLE_PEER_CONNECTION_ERROR action
+      dispatch(HANDLE_PEER_CONNECTION_ERROR, { peerConnection, err })
+      const msg = 'Error in connection to remote peer ID: ' + peerConnection.peer.id
+      console.debug(msg)
+      if (!isSetupResolved) {
+        isSetupResolved = true
+        setupReject(new Error(msg))
+      }      
+    })
+  
+    console.debug('peerConnection.on(event) handlers all set.')
+  }
+  
 
   /**
    * Schedule periodic pings to keep the datachannel alive.
