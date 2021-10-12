@@ -1,4 +1,5 @@
 import Peer from 'peerjs'
+import { TimerifyOptions } from 'perf_hooks'
 
 enum ConnectionStatus {
   DISCONNECTED,
@@ -19,7 +20,7 @@ export class PeerFetch {
   /**
    * A PeerJS instance that provides lower layer p2p connectivity API
    */
-  private _peer: Peer
+  private _peer?: Peer
 
   /**
    * Configuration parameters for the p2p network connection.
@@ -30,12 +31,12 @@ export class PeerFetch {
    * An identifier of this PeerJS instance that is unique within the p2p network that it participates.
    * It is assigned by the signaling server. Similar to an http session ID.
    */
-  private _myPeerId?: string
+  private _myPeerId: string = 'UKNOWN'
 
   /**
    * Peer ID of the remote node that will proxy http requests
    */
-  private _remotePeerID?: string
+  private _remotePeerID: string = 'UNKNOWN'
 
   /**
    * Tracks current status of the connection to the signaling server
@@ -56,10 +57,15 @@ export class PeerFetch {
   /**
    * Map of pending HTTP requests
    */
-  _requestMap: Map<string, any> = new Map()
+  private _requestMap: Map<number, any> = new Map()
 
   /**
-   * Ticketing enforce a strict order or processing for pending http requests and corresponding responses.
+   * Refernce to a timer that runs keepalive pings to the remote peer.
+   */
+  private _keepAlive?: ReturnType<typeof setTimeout>
+
+  /**
+   * Ticketing enforces a strict order or processing for pending http requests and corresponding responses.
    * Each async request from client code draws a new ticket.
    * Tickets are processed in the sequential monotonic order that they are drawn. 
    * Once a request is fully processed, its ticket is burned and the next ticket is processed.
@@ -87,22 +93,40 @@ export class PeerFetch {
     this._config = config
   }
 
-  async setup(remotePeerID: string) {
+  /**
+   * 
+   * Setup connection to a remote peer.
+   * 
+   * @param remotePeerID valid remote peer ID in the p2p network.
+   * @returns Promise that either resolves when a connection is established
+   *  or throws and exception if connectiion attempt fails.
+   */
+  async connect(remotePeerID: string) {
     this._signalingConnectionStatus = ConnectionStatus.CONNECTING
     this._remotePeerID = remotePeerID
     let newPeer = new Peer(this._config)
     this._peer = newPeer
     // return a promise that will be resolved when the peer connection is ready.
-    const setupReady = new Promise((resolve, reject) => {
-      this._setSignalingServiceConnectionHandlers(newPeer, resolve, reject)
+    const setupReady = new Promise((connectionSetupResolve, connectionSetupReject) => {
+      this._setSignalingServiceConnectionHandlers(newPeer, connectionSetupResolve, connectionSetupReject)
     })
     return setupReady
+  }
+
+  /**
+   * Tead down connections to remote peer and signaling server.
+   */
+  async disconnect() {
+    if (this._peer) {
+      this._peer.destroy()
+    }
   }
 
   private _setSignalingServiceConnectionHandlers (peer: Peer, setupResolve: Function, setupReject: Function) {
     // isSetupResolved indicates whether the setupReady promise has been resolved or rejected
     // to ensure that we resolve/reject the promise only once.
     let isSetupResolved = false
+
     peer.on('open', (id: string) => {
       // signaling server connection established
       if (!peer.id && this._myPeerId) {
@@ -122,16 +146,24 @@ export class PeerFetch {
       console.debug('Connected to signaling server; myPeerId: ', peer.id)
       isSetupResolved = true // only as far as signaling is concerned
       // The final setup resolution or rejection now depends on the next step: peer connection setup.
+      const peerConnection = peer.connect(this._remotePeerID, {
+        label: 'http-proxy', reliable: true, serialization: 'raw'
       })
+      this._setPeerConnectionHandlers(peerConnection, setupResolve, setupReject)
+    })
+
     peer.on('disconnected', () => {
       this._signalingConnectionStatus = ConnectionStatus.DISCONNECTED
       const msg = 'Disconnected from signaling server.'
       console.debug(msg)
+      // if PeerFetch setup() promise has not been resolved yet,
+      // then throw an exception to notify any app code awaiting resolution.
       if (!isSetupResolved) {
         isSetupResolved = true
         setupReject(new Error(msg))
       }
     })
+
     peer.on('close', () => {
       this._signalingConnectionStatus = ConnectionStatus.DISCONNECTED
       const msg = 'Socket connection to signaling server closed.'
@@ -141,6 +173,7 @@ export class PeerFetch {
         setupReject(new Error(msg))
       }
     })
+
     peer.on('error', (err) => {
       this._signalingConnectionStatus = ConnectionStatus.ERROR
       const msg = 'Error in signaling server connection.'
@@ -150,6 +183,7 @@ export class PeerFetch {
         setupReject(new Error(msg))
       }
     })
+
     // remote peer tries to initiate connection
     peer.on('connection', (peerConnection) => {
       console.debug('Remote peer trying to initiate a connection')
@@ -163,6 +197,7 @@ export class PeerFetch {
     // isSetupResolved indicates whether the setupReady promise has been resolved or rejected
     // to ensure that we resolve/reject the promise only once.
     let isSetupResolved = false    
+
     // setup connection progress callbacks
     peerConnection.on('open', () => {
       this._peerConnectionStatus = ConnectionStatus.CONNECTED
@@ -177,124 +212,51 @@ export class PeerFetch {
       // points to the next ticket assigned to a pending request
       // Requests are processed in FIFO order.
       this._nextTicketInLine = 0
-      this._configureDataConnection()
-      this._schedulePing()
       console.debug('Peer DataConnection is now open.')
+      // Now that a peer connection is established,
+      // we can resolve the PeerFetch setup() promise
       isSetupResolved = true
       setupResolve()
+      // schedule keepalive pings to prevent 
+      // routers from closing the NAT holes during persiod of inactivity
+      // between peerfetch requests.
+      this._schedulePing()
     })
   
     peerConnection.on('close', () => {
       this._peerConnectionStatus = ConnectionStatus.DISCONNECTED
       const msg = 'Peer DataConnection closed.'
       console.debug(msg)
+      // if PeerFetch setup() promise has not been resolved yet,
+      // then throw an exception to notify any app code awaiting resolution.
       if (!isSetupResolved) {
         isSetupResolved = true
         setupReject(new Error(msg))
-      }      
+      }
+      console.debug('Peer connection is now closed.')
+      this._stopPing()      
     })
   
     peerConnection.on('error', (err) => {
       this._peerConnectionStatus = ConnectionStatus.ERROR
-      this._peerConnection = peerConnection
-      console.debug('Peer DataConnection closed.')
-
-      clearTimeout(hungupConnectionResetTimer)
-      commit(USER_MESSAGE, 'Error in connection to remote peer ID', peerConnection.peer)
-      console.info(`Error in connection to remote peer ID ${peerConnection.peer}`, err)
-      // schedule an async HANDLE_PEER_CONNECTION_ERROR action
-      dispatch(HANDLE_PEER_CONNECTION_ERROR, { peerConnection, err })
-      const msg = 'Error in connection to remote peer ID: ' + peerConnection.peer.id
+      const msg = 'Error in connection to remote peer ID: ' + peerConnection.peer
       console.debug(msg)
       if (!isSetupResolved) {
         isSetupResolved = true
         setupReject(new Error(msg))
-      }      
+      }
     })
   
-    console.debug('peerConnection.on(event) handlers all set.')
-  }
-  
-
-  /**
-   * Schedule periodic pings to keep the datachannel alive.
-   * Some routers and firewalls close open ports within seconds
-   * without data packets flowing through.
-   */
-  _schedulePing () {
-    this._keepAlive = setInterval(
-      async () => {
-        // check if there are any pending requests
-        // no ping needed as long as there is traffic on the channel
-        if (!this._pendingRequests()) {
-          try {
-            // request pong to keep the webrtc datachannel connection alive
-            await this.get('ping')
-          } catch (err) {
-            console.warn('ping request timed out while waiting for pong from remote peer.')
-          }
-        }
-      },
-      1000 // every second
-    )
-    console.debug('Pings scheduled.')
-  }
-
-  /**
-  * Stop keepalive pings.
-  */
-  _stopPing () {
-    clearInterval(this._keepAlive)
-  }
-
-  /**
-    Return the next available ticket number
-    for the HTTP request processing queue
-    and simultaneously increment the ticket counter.
-  */
-  _drawNewTicket () {
-    const nextAvailable = this._nextAvailableTicket
-    this._nextAvailableTicket++
-    const nextInLine = this._nextTicketInLine
-    console.assert(
-      nextInLine <= nextAvailable,
-      { nextInLine, nextAvailable }
-    )
-    return nextAvailable
-  }
-
-  /**
-    Move on to next pending ticket for the HTTP request queue
-  */
-  _ticketProcessed (ticket) {
-    const errorMsg = 'response received out of order!'
-    const nextTicket = this._nextTicketInLine
-    console.assert(
-      ticket === nextTicket,
-      { ticket, nextTicket, errorMsg }
-    )
-    // remove entry from pending request map
-    this._requestMap.delete(ticket)
-    this._nextTicketInLine++
-    const nextInLine = this._nextTicketInLine
-    const nextAvailable = this._nextAvailableTicket
-    console.assert(
-      nextInLine <= nextAvailable,
-      { nextInLine, nextAvailable }
-    )
-  }
-
-  _configureDataConnection () {
-    // Handle incoming data (messages only since this is the signal sender)
-    const peerFetch = this
-    this._dataConnection.on('data', function (data) {
+    peerConnection.on('data', (data) => {
       console.debug('Remote Peer Data message received (type %s)',
         typeof (data), { data })
       // we expect data to be a response to a previously sent request message
-      const ticket = peerFetch._nextTicketInLine
-      console.debug(peerFetch, peerFetch._requestMap, ticket, data)
+      // or a server side initiated keepalive ping message
+      const ticket = this._nextTicketInLine
+      const requestMap = this._requestMap
+      console.debug({ requestMap, ticket, data })
       // update request-response map entry with this response
-      const pair = peerFetch._requestMap.get(ticket)
+      const pair = this._requestMap.get(ticket)
       if (pair) {
         // we expect the remote peer to respond with two consequetive data packates
         // the first one containing the http header info
@@ -302,7 +264,7 @@ export class PeerFetch {
         if (!pair.response) {
           console.debug('Processing response header', data)
           // this is the first data message from the responses
-          const header = peerFetch.jsonify(data)
+          const header = this.jsonify(data)
           let receivedAll = false
           let content
           switch (header.status) {
@@ -345,27 +307,95 @@ export class PeerFetch {
           { ticket, data })
       }
     })
-    this._dataConnection.on('open', function () {
-      console.debug('Peer connection is now open.')
-      peerFetch._schedulePing()
-    })
-    this._dataConnection.on('close', function () {
-      console.debug('Peer connection is now closed.')
-      peerFetch._stopPing()
-    })
+
+    console.debug('peerConnection.on(event) handlers all set.')
+  }
+  
+
+  /**
+   * Schedule periodic pings to keep the datachannel alive.
+   * Some routers and firewalls close open ports within seconds
+   * without data packets flowing through.
+   */
+  _schedulePing () {
+    this._keepAlive = setInterval(
+      async () => {
+        // check if there are any pending requests
+        // no ping needed as long as there is traffic on the channel
+        if (!this._pendingRequests()) {
+          try {
+            // request pong to keep the webrtc datachannel connection alive
+            await this.get('ping')
+          } catch (err) {
+            console.warn('ping request timed out while waiting for pong from remote peer.')
+          }
+        }
+      },
+      1000 // every second
+    )
+    console.debug('Pings scheduled.')
   }
 
   /**
-  * Similar to axios.request(config)
+  * Stop keepalive pings.
+  */
+  _stopPing () {
+    if (this._keepAlive) {
+      clearInterval(this._keepAlive)
+    }
+  }
+
+  /**
+    Return the next available ticket number
+    for the HTTP request processing queue
+    and simultaneously increment the ticket counter.
+  */
+  _drawNewTicket (): number {
+    const nextAvailable = this._nextAvailableTicket
+    this._nextAvailableTicket++
+    const nextInLine = this._nextTicketInLine
+    console.assert(
+      nextInLine <= nextAvailable,
+      'nextInLine has to be less or equal to nextAvailable',
+      { nextInLine , nextAvailable }
+    )
+    return nextAvailable
+  }
+
+  /**
+    Move on to next pending ticket for the HTTP request queue
+  */
+  _ticketProcessed (ticket: number): void {
+    const errorMsg = 'response received out of order!'
+    const nextTicket = this._nextTicketInLine
+    console.assert(
+      ticket === nextTicket, 
+      'ticket parameter has to equal nextTicket',
+      { ticket, nextTicket, errorMsg }
+    )
+    // remove entry from pending request map
+    this._requestMap.delete(ticket)
+    this._nextTicketInLine++
+    const nextInLine = this._nextTicketInLine
+    const nextAvailable = this._nextAvailableTicket
+    console.assert(
+      nextInLine <= nextAvailable,
+      'nextInLine has to be less or equal than nextAvailable',
+      { nextInLine, nextAvailable }
+    )
+  }
+
+  /**
+  * Convenience method for developers familiar with axios.request(config)
   *
   * @see {@link https://github.com/axios/axios#axiosrequestconfig}
   * @see {@link https://github.com/axios/axios#request-config}
   */
-  async request ({ url = '/', method = 'GET', params = {} }) {
+  async request ({ url = '/', method = 'GET', params = new Map<string, any>() }): Promise<any> {
     console.debug('PeerFetch.request enter', { url, method, params })
     var esc = encodeURIComponent
     var query = Object.keys(params)
-      .map(k => esc(k) + '=' + esc(params[k]))
+      .map(k => esc(k) + '=' + esc(params.get(k)))
       .join('&')
     url += '?' + query
     console.debug('PeerFetch.request', { url, method, query })
@@ -390,7 +420,7 @@ export class PeerFetch {
    * @param {*} url resource to GET
    * @param {*} config request header options
    */
-  async get (url = '/', config = {}) {
+  async get (url = '/', config?: any) {
     config.url = url
     config.method = 'GET'
     return await this.request(config)
@@ -407,7 +437,7 @@ export class PeerFetch {
    * @param {*} data data payload for the PUT request
    * @param {*} config request header options
    */
-  async put (url, data, config = {}) {
+  async put (url: string, data: any, config: any) {
     config.url = url
     config.method = 'PUT'
     config.data = data
@@ -424,14 +454,12 @@ export class PeerFetch {
    * @param {*} input resource URL to fetch
    * @param {*} init request header options
    */
-  async fetch (input = '/', init = { method: 'GET' }) {
-    const config = {}
-    config.url = input
-    config.method = init.method
+  async fetch (input = '/', init: { method: 'GET' }) {
+    const config = { url: input, method: init.method }
     return await this.request(config)
   }
 
-  _enqueueRequest (request) {
+  _enqueueRequest (request: {}): number {
     const ticket = this._drawNewTicket()
     const requestMap = this._requestMap
     console.debug('_enqueueRequest: ', { requestMap })
@@ -465,13 +493,15 @@ export class PeerFetch {
       requestSent = true
       this._requestMap.set(ticket, { request, requestSent })
     }
-    console.assert(request != null, { ticket, request })
+    console.assert(request, 'request cannot be null or empty', { ticket, request })
     const jsonRequest = JSON.stringify(request)
     const requestMap = this._requestMap
     console.debug('PeerFetch: Sending request to remote peer',
       { requestMap, ticket, request })
     try {
-      this._dataConnection.send(jsonRequest)
+      if (this._dataConnection) {
+        this._dataConnection.send(jsonRequest)
+      } else throw new Error('no _dataConnection available')
       console.debug('PeerFetch: Request sent to remote peer: ', jsonRequest)
     } catch (error) {
       console.error('PeerFetch: Error sending message via Peer DataConnection', { error })
@@ -495,8 +525,8 @@ export class PeerFetch {
     }
   }
 
-  textDecode (arrayBuffer) {
-    let decodedString
+  textDecode (arrayBuffer: any) {
+    let decodedString: string = ""
     if ('TextDecoder' in window) {
       // Decode as UTF-8
       var dataView = new DataView(arrayBuffer)
@@ -504,14 +534,16 @@ export class PeerFetch {
       decodedString = decoder.decode(dataView)
     } else {
       // Fallback decode as ASCII
-      decodedString = String.fromCharCode.apply(null,
-        new Uint8Array(arrayBuffer))
+      let jsonKey: string = "";
+      (new Uint8Array(arrayBuffer)).forEach(function (byte: number) {
+        decodedString += String.fromCharCode(byte);
+      })  
     }
     console.debug({ decodedString })
     return decodedString
   }
 
-  jsonify (data) {
+  jsonify (data: any) {
     let decodedString
     console.debug('jsonify', data)
     if (!data) {
@@ -525,7 +557,7 @@ export class PeerFetch {
     return response
   }
 
-  _checkResponseReady (ticket) {
+  _checkResponseReady (ticket: number) {
     let request = null
     let response = null;
     ({ request, response } = this._requestMap.get(ticket))
@@ -541,7 +573,7 @@ export class PeerFetch {
     }
   }
 
-  async _receiveResponse (ticket) {
+  async _receiveResponse (ticket: number) {
     const timeout = 20 * 1000 // 10 seconds
     const timerStart = Date.now()
     let timeElapsed = 0
@@ -566,6 +598,6 @@ export class PeerFetch {
   }
 }
 
-function sleep (ms) {
+function sleep (ms: number): Promise<unknown> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
