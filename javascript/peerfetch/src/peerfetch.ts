@@ -1,5 +1,5 @@
+
 import Peer from 'peerjs'
-import { TimerifyOptions } from 'perf_hooks'
 
 enum ConnectionStatus {
   DISCONNECTED,

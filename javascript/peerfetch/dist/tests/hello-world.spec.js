@@ -7,7 +7,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { PeerFetch } from '../src/index';
+import PeerFetch from '../src/index';
 describe('PeerFetch class coverage - http over webrtc methods', () => {
     beforeAll(() => {
     });
@@ -19,12 +19,15 @@ describe('PeerFetch class coverage - http over webrtc methods', () => {
     test('minimal peerfetch logic', () => __awaiter(void 0, void 0, void 0, function* () {
         // setup peerfetch instance
         const remotePeerID = '0527fc3d-7e83-4ce5-b133-1089af69b567';
-        const peerFetch = new PeerFetch({
-            host: 'ambianic-pnp.herokuapp.com',
-            port: 443,
-            secure: true,
-        });
-        yield peerFetch.connect(remotePeerID);
+        const peerFetch = PeerFetch;
+        /**
+              new PeerFetch(      {
+                host: 'ambianic-pnp.herokuapp.com',
+                port: 443,
+                secure: true,
+              })
+              await peerFetch.connect(remotePeerID)
+        */
         // ready to use as a regular HTTP client
         const response = yield peerFetch.get('http://localhost/status');
         console.debug({ response });

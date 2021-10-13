@@ -1,4 +1,4 @@
-import { PeerFetch } from '../src/index'
+import PeerFetch from '../src/index'
 
 describe('PeerFetch class coverage - http over webrtc methods', () => {
   

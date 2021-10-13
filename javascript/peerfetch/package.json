@@ -2,14 +2,14 @@
   "name": "peerfetch",
   "version": "0.0.1",
   "description": "PeerFetch client. Implements HTML fetch() over WebRTC DataChannel.",
-  "main": "index.js",
+  "main": "dist/peerfetch.js",
   "directories": {
     "src": "src",
     "test": "tests"
   },
   "scripts": {
     "prepare": "husky install",
-    "build": "tsc && webpack",
+    "build": "webpack",
     "test": "jest"
   },
   "repository": {
