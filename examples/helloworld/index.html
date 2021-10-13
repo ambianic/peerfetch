@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+
+<html lang="en">
+ <head>
+  <meta charset="utf-8" />
+  <title>PeerFetch Hello World</title>
+  <script src="/javascript/peerfetch/dist/peerfetch.js"></script>
+ </head>
+
+ <body>
+
+  <p>
+
+    <div>
+      <span style="font-weight: bold">Remote Peer ID: </span>
+      <input type="text" id="receiver-id" title="Input remote peer ID">
+      <button id="connect-button">Connect</button>
+    </div>
+
+    <div>
+      <p>
+        Remote peer says:
+        <span id="ui_message">
+          ...waiting...
+        </span>
+      </p>
+    </div>
+  </p>
+
+  <script type="module" async>
+    var connectButton = document.getElementById("connect-button")
+    // Start peer connection on click
+    connectButton.addEventListener('click', talkToRemotePeer)
+
+    function talkToRemotePeer() {
+
+      const PeerFetch = window.peerfetch.PeerFetch
+
+      console.debug(PeerFetch)
+      console.debug(Object.keys(PeerFetch))
+
+      // initial setup of PeerFetch on the p2p network
+      // first, connect to the signaling server (peer registrar)
+      const peerFetch = new PeerFetch({
+        host: 'ambianic-pnp.herokuapp.com',
+        port: 443,
+        secure: true,
+      })
+      // Next, connect to a remote peer that will proxy http requests over webrtc.
+      // Remote peer is usually an edge device with a local REST API.
+      var recvIdInput = document.getElementById("receiver-id")
+      const remotePeerID = recvIdInput.value
+      peerFetch.connect(remotePeerID).then( () => {
+        // now use peerfetch as a regular HTTP client
+        peerFetch.get('http://localhost:8778/api/hello').then( (response) => {
+          const json = peerFetch.jsonify(response.content)
+          const msg = JSON.stringify(json)
+          var span = document.getElementById("ui_message")
+          span.textContent = msg
+        })
+      }).catch((err) => console.error(err))
+    }
+  </script>
+ </body>
+</html>
+

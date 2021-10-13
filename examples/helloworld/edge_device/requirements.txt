@@ -1,0 +1,4 @@
+fastapi>0.68
+uvicorn>=0.15
+pydantic>1.8
+peerjs>1.5
