@@ -1,6 +1,6 @@
 import { PeerFetch } from '../src/index'
 
-describe('PeerFetch class coverage - p2p communication layer', () => {
+describe('PeerFetch class coverage - http over webrtc methods', () => {
   
     beforeAll(() => {
     })
@@ -12,24 +12,19 @@ describe('PeerFetch class coverage - p2p communication layer', () => {
       jest.resetAllMocks()
     })
   
-    test('minimal peerfetch logic', () => {
-      const msg = 'Hello World'
-      const peerFetch = new PeerFetch(msg)
-      const greet = jest.spyOn(PeerFetch.prototype, 'greet')
-      expect(greet).toHaveBeenCalledTimes(0)
-      console.debug(greet.mock.results)
-      const result = peerFetch.greet()
-      console.debug({ result })
-      expect(greet).toHaveBeenCalledTimes(1)
-      console.debug(greet.mock.results)
-      expect(result).toEqual(msg)
-      expect(greet).toHaveReturnedWith(msg)
-      const meet =  jest.spyOn(peerFetch, 'meet')
-      const mresult = peerFetch.meet()
-      console.debug(mresult)
-      expect(mresult).toEqual(123)
-      expect(meet).toHaveBeenCalledTimes(1)
-      expect(meet).toHaveReturnedWith(123)
+    test('minimal peerfetch logic', async () => {
+      // setup peerfetch instance
+      const remotePeerID = '0527fc3d-7e83-4ce5-b133-1089af69b567'
+      const peerFetch = new PeerFetch(      {
+        host: 'ambianic-pnp.herokuapp.com',
+        port: 443,
+        secure: true,
+      })
+      await peerFetch.connect(remotePeerID)
+
+      // ready to use as a regular HTTP client
+      const response = await peerFetch.get('http://localhost/status')
+      console.debug({ response })
+      expect(response).toEqual('Hello World!')
     })
   })
-  

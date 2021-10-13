@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+
+<html lang="en">
+ <head>
+  <meta charset="utf-8" />
+  <title>PeerFetch Hello World</title>
+ </head>
+
+ <body>
+  <script src="/javascript/peerfetch/dist/bundle.js">
+    const pfetch = new PeerFetch(config)
+    const remotePeerID = '...asd'
+    pfetch.connect(remotePeerID)
+    const response = pfetch.get('http://localhost:8080/hello')
+    const label = response.content.label
+    alert(label)
+  </script>
+ </body>
+</html>
+

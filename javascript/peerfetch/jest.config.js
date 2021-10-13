@@ -6,7 +6,7 @@ module.exports = {
     }
   },
   rootDir: '.',
-  testEnvironment: 'node',
+  testEnvironment: 'jest-environment-jsdom', // 'node',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1'
   },

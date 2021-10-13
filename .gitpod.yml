@@ -22,6 +22,9 @@ tasks:
       cd javascript/peerfetch
       echo "Running peerfetch JavaScript testsuite:"
       npm run test
+  - command: |
+      echo "Starting http server for local HTML files preview"
+      npx browser-sync start -s -w      
 
 ports:
   - port: 8080

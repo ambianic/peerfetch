@@ -176,7 +176,7 @@ export class PeerFetch {
 
     peer.on('error', (err) => {
       this._signalingConnectionStatus = ConnectionStatus.ERROR
-      const msg = 'Error in signaling server connection.'
+      const msg = 'Error in signaling server connection: ' + err.message
       console.debug(msg)
       if (!isSetupResolved) {
         isSetupResolved = true
@@ -420,9 +420,8 @@ export class PeerFetch {
    * @param {*} url resource to GET
    * @param {*} config request header options
    */
-  async get (url = '/', config?: any) {
-    config.url = url
-    config.method = 'GET'
+  async get (url = '/') {
+    const config = { url: url, method: 'GET' }
     return await this.request(config)
   }
 
