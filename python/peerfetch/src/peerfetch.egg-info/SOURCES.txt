@@ -1,0 +1,7 @@
+setup.cfg
+setup.py
+peerfetch.egg-info/PKG-INFO
+peerfetch.egg-info/SOURCES.txt
+peerfetch.egg-info/dependency_links.txt
+peerfetch.egg-info/requires.txt
+peerfetch.egg-info/top_level.txt

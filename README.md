@@ -1,8 +1,4 @@
 
-:warning: :construction: **MIGRATING CODE TO THIS REPO IN PROGRESS** :construction: :warning: 
-
-The `peerfetch` library has been used as integral part of [`ambianic-ui`](https://github.com/ambianic/ambianic-ui/blob/master/src/remote/peer-fetch.js) and [ambianic-edge](https://github.com/ambianic/peerjs-python/blob/master/src/peerjs/ext/http_proxy.py) since 2019. It has reached a reasonable state of stability that we consider ready for a standalone package. We are in the process of extracting and migrating its code to this repo with the intention of packaging and releasing it independently. You can watch this repo for release notifications.
-
 # peerfetch
 
 Peer-to-peer HTTP over WebRTC. Implements [HTML5 fetch()](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch) over WebRTC DataChannel. Allows direct secure access from a web browser to edge devices (IoT or servers) hidden behind a firewall. 
@@ -14,41 +10,43 @@ Peer-to-peer HTTP over WebRTC. Implements [HTML5 fetch()](https://developer.mozi
 - No dynamic DNS services. 
 - No firewall (re)configuration.
 
-See [this blog post](https://webrtchacks.com/private-home-surveillance-with-the-webrtc-datachannel/) for a technical discussion and examples. Works in browser, NodeJS, Python, Go and other runtimes that support WebRTC.
-
-From a web app's perspective, this is the code to access the REST API hosted on the remote edge device:
+Here is a basic web browser app code to access the REST API hosted on the remote edge device:
 
 ```
-const response = await peerFetch.get(request)
+<!DOCTYPE html>
+
+<html lang="en">
+ <head>
+  <script src="/javascript/peerfetch/dist/peerfetch.js"></script>
+ </head>
+ <body>
+  <script type="module" async>
+
+      const PeerFetch = window.peerfetch.PeerFetch
+
+      // initial setup of PeerFetch on the p2p network
+      // first, connect to the signaling server (peer registrar)
+      const peerFetch = new PeerFetch(config)
+      peerFetch.connect('aValidRemotePeerID').then( () => {
+
+        // Now use peerfetch as a regular HTTP client.
+        // Except the host part in the URL is not publicly accessible. 
+        // It is only visible to the remote peerfetch proxy.
+        peerFetch.get('http://localhost:8778/api/hello').then( (response) => {
+          const json = peerFetch.jsonify(response.content)
+          const msg = JSON.stringify(json)
+          // show msg response in browser
+          alert(msg)
+        })
+      }).catch((err) => console.error(err))
+    }
+  </script>
+ </body>
+</html>
+
 ```
 
-There is a simple boilerplate connection setup procedure on web app load. It registers with a signaling server which helps locate the `peerfetch` proxy running on the remote edge device. From that point on all communication between web app and edge device are direct over IP with end to end encryption. [Here is an example](https://github.com/ambianic/ambianic-ui/blob/cc29e6f4e972d69b17c00b43077a81952be8208e/src/store/pnp.js#L268) how that works. A more detailed step by step guide is in the works.
-
-Web view components use `peerfetch` to grab and render data as they would with a regular `fetch()` call. [Here is an example](https://github.com/ambianic/ambianic-ui/blob/cc29e6f4e972d69b17c00b43077a81952be8208e/src/views/Timeline.vue#L27) of a VueJS page that uses `peerfetch` to call the REST API on a remote edge device (smart cam) and then render a timeline of detection events from the JSON API response. It also pulls static images referenced in the JSON response from the remote edge device.
-
-```vue
-          <v-list-item
-            ref="timeline-data"
-            data-cy="timelinedata"
-            v-for="(sample, index) in timeline"
-            :key="index"
-            class="pa-0 ma-0"
-          >
-            <v-list-item-content
-              class="pa-0 ma-0"
-            >
-              <v-img
-                v-if="sample.args.thumbnail_file_name"
-                :src="imageURL[sample.args.id]"
-                class="white--text align-start"
-                alt="Detection Event"
-                contain
-                @load="setImageLoaded(index)"
-                lazy-src="/img/lazy-load-bg.gif"
-              >
-...              
-
-```
+See [this blog post](https://webrtchacks.com/private-home-surveillance-with-the-webrtc-datachannel/) for a deeper technical discussion and examples. Works in browser, NodeJS, Python, Go and other runtimes that support WebRTC.
 
 # Project background
 
@@ -74,12 +72,6 @@ While WebRTC is already widely used for video calls and meetings, there is also 
 - IoT devices can talk to each other without data flowing through cloud services. 
 - Web apps can share data directly (files, notes, photos) without flowing it through cloud servers.
 - Federated learning - ML models can train on local user data and share learned states directly with each other.
-
-# Related Repos
-
-- `peerfetch-client`: Browser client library in JavaScript. Allows browser apps to directly access IoT device REST APIs. For example accessing your home smart camera directly from your desktop or mobile phone without any footage going through cloud servers.
-- `peerfetch-proxy`: WebRTC to HTTP proxy deployed on edge devices. Distributed as a python package and a docker image. Allows remote web browser apps to securely access device local REST APIs. Builds on top of the [`peerjs-python`](https://github.com/ambianic/peerjs-python) package.
-- [`ambianic-pnp`](https://github.com/ambianic/ambianic-pnp): Plug-and-play signaling server with minimal emphimeral state. Allows browser clients to find IoT devices in order to establish direct data connection. No persisted storage. Clients regularly re-register and update state. In case of a server crash, state is restored within seconds of restart. A Node.js package.
 
 # Used by
 

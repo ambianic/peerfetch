@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: peerfetch
+Version: 0.0.1
+Summary: Python implementation of peerfetch. Peer-to-peer HTTP over WebRTC Datachannel.
+Home-page: https://github.com/ambianic/peerfetch
+Author: Ivelin Ivanov
+Author-email: ivelin.ivanov@ambianic.ai
+License: Apache Software License 2.0
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Communications
+Classifier: Intended Audience :: Developers
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
