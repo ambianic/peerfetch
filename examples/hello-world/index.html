@@ -8,30 +8,40 @@
  </head>
 
  <body>
+
+  <p>
+    Remote peer says:
+    <span id="ui_message">
+      ...waiting...
+    </span>
+  </p>
+
   <script type="module">
     const PeerFetch = window.peerfetch.PeerFetch
 
     console.debug(PeerFetch)
     console.debug(Object.keys(PeerFetch))
-    
-    async function get() {
-      console.debug({ PeerFetch })
-      // initial setup of PeerFetch on the p2p network
-      const remotePeerID = '0527fc3d-7e83-4ce5-b133-1089af69b567'
-      const peerFetch = new PeerFetch({
-        host: 'ambianic-pnp.herokuapp.com',
-        port: 443,
-        secure: true,
+
+    // initial setup of PeerFetch on the p2p network
+    const remotePeerID = '0527fc3d-7e83-4ce5-b133-1089af69b567'
+    const peerFetch = new PeerFetch({
+      host: 'ambianic-pnp.herokuapp.com',
+      port: 443,
+      secure: true,
+    })
+    peerFetch.connect(remotePeerID).then( () => {
+      // now use peerfetch as a regular HTTP client
+      const url = 'http://localhost:8778/api/status'
+      console.debug(`get(${url})`)
+      peerFetch.get(url).then( (response) => {
+        console.debug(`get(${url}) response received:`, { response })
+        const json = peerFetch.jsonify(response.content)
+        console.debug('response as json:', { json })
+        const msg = JSON.stringify(json)
+        var span = document.getElementById("ui_message")
+        span.textContent = msg
       })
-      await peerFetch.connect(remotePeerID)
-
-      // ready to use as a regular HTTP client
-      const response = await peerFetch.get('http://localhost/status')
-      console.debug({ response })
-      return response
-    }
-
-    get().then((response) => alert(response)).catch((err) => console.error(err))
+    }).catch((err) => console.error(err))
   </script>
  </body>
 </html>

@@ -31,12 +31,12 @@ export class PeerFetch {
    * An identifier of this PeerJS instance that is unique within the p2p network that it participates.
    * It is assigned by the signaling server. Similar to an http session ID.
    */
-  private _myPeerId: string = 'UKNOWN'
+  private _myPeerId?: string
 
   /**
    * Peer ID of the remote node that will proxy http requests
    */
-  private _remotePeerID: string = 'UNKNOWN'
+  private _remotePeerID?: string
 
   /**
    * Tracks current status of the connection to the signaling server
@@ -102,8 +102,16 @@ export class PeerFetch {
    *  or throws and exception if connectiion attempt fails.
    */
   async connect(remotePeerID: string) {
+    if (!remotePeerID) {
+      const msg = "Valid remote Peer ID required!"
+      throw new Error(msg)
+    }
     this._signalingConnectionStatus = ConnectionStatus.CONNECTING
     this._remotePeerID = remotePeerID
+    if (this._config && !this._config.debug) {
+      // set PeerJS at debug level by default
+      this._config.debug = 3
+    }
     let newPeer = new Peer(this._config)
     this._peer = newPeer
     // return a promise that will be resolved when the peer connection is ready.
@@ -131,11 +139,11 @@ export class PeerFetch {
       // signaling server connection established
       if (!peer.id && this._myPeerId) {
         // Workaround for peer.reconnect deleting previous id
-        console.log('Received null id from peer open.')
+        console.debug('Received null id from peer open.')
         peer.id = this._myPeerId
       } else {
         if (this._myPeerId !== peer.id) {
-          console.log(
+          console.debug(
             'Signaling server returned new peerID. ',
             'Old PeerID:', this._myPeerId, 
             'New PeerID: ', peer.id
@@ -146,10 +154,17 @@ export class PeerFetch {
       console.debug('Connected to signaling server; myPeerId: ', peer.id)
       isSetupResolved = true // only as far as signaling is concerned
       // The final setup resolution or rejection now depends on the next step: peer connection setup.
-      const peerConnection = peer.connect(this._remotePeerID, {
-        label: 'http-proxy', reliable: true, serialization: 'raw'
-      })
-      this._setPeerConnectionHandlers(peerConnection, setupResolve, setupReject)
+      if (this._remotePeerID) {
+        const peerConnection = peer.connect(this._remotePeerID, {
+          label: 'http-proxy', reliable: true, serialization: 'raw'
+        })
+        this._setPeerConnectionHandlers(peerConnection, setupResolve, setupReject)
+      } else if (!isSetupResolved) {
+        const msg = "Valid remote Peer ID required!"
+        setupReject(new Error(msg))
+      }{
+
+      }
     })
 
     peer.on('disconnected', () => {
@@ -212,15 +227,19 @@ export class PeerFetch {
       // points to the next ticket assigned to a pending request
       // Requests are processed in FIFO order.
       this._nextTicketInLine = 0
-      console.debug('Peer DataConnection is now open.')
+      console.debug('Peer DataConnection is now open.', { peerConnection })
       // Now that a peer connection is established,
       // we can resolve the PeerFetch setup() promise
       isSetupResolved = true
-      setupResolve()
-      // schedule keepalive pings to prevent 
-      // routers from closing the NAT holes during persiod of inactivity
-      // between peerfetch requests.
-      this._schedulePing()
+      // Add artificial delay as a workaround for a timing issue with dataconnection open.
+      // It needs a moment to be come available after is signals 'open' state.
+      setTimeout( () => {
+        setupResolve()
+        // schedule keepalive pings to prevent 
+        // routers from closing the NAT holes during persiod of inactivity
+        // between peerfetch requests.
+        this._schedulePing()
+      }, 1000)
     })
   
     peerConnection.on('close', () => {
@@ -392,7 +411,7 @@ export class PeerFetch {
   * @see {@link https://github.com/axios/axios#request-config}
   */
   async request ({ url = '/', method = 'GET', params = new Map<string, any>() }): Promise<any> {
-    console.debug('PeerFetch.request enter', { url, method, params })
+    console.debug('PeerFetch.request entered.', { url, method, params })
     var esc = encodeURIComponent
     var query = Object.keys(params)
       .map(k => esc(k) + '=' + esc(params.get(k)))
@@ -408,6 +427,7 @@ export class PeerFetch {
     // response when available
     const ticket = this._enqueueRequest(request)
     const response = await this._receiveResponse(ticket)
+    console.debug('PeerFetch.request ended. Returning response:', { url, method, params, response })
     return response
   }
 
@@ -495,12 +515,17 @@ export class PeerFetch {
     console.assert(request, 'request cannot be null or empty', { ticket, request })
     const jsonRequest = JSON.stringify(request)
     const requestMap = this._requestMap
+    const dataConnection = this._dataConnection
     console.debug('PeerFetch: Sending request to remote peer',
-      { requestMap, ticket, request })
+      { requestMap, ticket, request, dataConnection })
     try {
       if (this._dataConnection) {
         this._dataConnection.send(jsonRequest)
-      } else throw new Error('no _dataConnection available')
+      } else {
+        const msg = 'No Peer DataConnection available!'
+        console.error(msg)
+        throw new Error(msg)
+      }
       console.debug('PeerFetch: Request sent to remote peer: ', jsonRequest)
     } catch (error) {
       console.error('PeerFetch: Error sending message via Peer DataConnection', { error })
@@ -573,7 +598,7 @@ export class PeerFetch {
   }
 
   async _receiveResponse (ticket: number) {
-    const timeout = 20 * 1000 // 10 seconds
+    const timeout = 20 * 1000
     const timerStart = Date.now()
     let timeElapsed = 0
     let response = null
@@ -588,11 +613,12 @@ export class PeerFetch {
       // before timeout.
       response = this._checkResponseReady(ticket)
     }
+    let request
     if (response) {
       console.debug('Returning full response', { response })
       return response
     } else {
-      throw Error('PeerFetch Timeout while waiting for response.')
+      throw new Error('PeerFetch timed out while waiting for response. ')
     }
   }
 }
