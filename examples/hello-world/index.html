@@ -23,20 +23,19 @@
     console.debug(Object.keys(PeerFetch))
 
     // initial setup of PeerFetch on the p2p network
-    const remotePeerID = '0527fc3d-7e83-4ce5-b133-1089af69b567'
+    // first, connect to the signaling server (peer registrar)
     const peerFetch = new PeerFetch({
       host: 'ambianic-pnp.herokuapp.com',
       port: 443,
       secure: true,
     })
+    // Next, connect to a remote peer that will proxy http requests over webrtc.
+    // Remote peer is usually an edge device with a local REST API.
+    const remotePeerID = '0527fc3d-7e83-4ce5-b133-1089af69b567'
     peerFetch.connect(remotePeerID).then( () => {
       // now use peerfetch as a regular HTTP client
-      const url = 'http://localhost:8778/api/status'
-      console.debug(`get(${url})`)
-      peerFetch.get(url).then( (response) => {
-        console.debug(`get(${url}) response received:`, { response })
+      peerFetch.get('http://localhost:8778/api/status').then( (response) => {
         const json = peerFetch.jsonify(response.content)
-        console.debug('response as json:', { json })
         const msg = JSON.stringify(json)
         var span = document.getElementById("ui_message")
         span.textContent = msg
