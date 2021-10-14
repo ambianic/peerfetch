@@ -4,7 +4,7 @@
 Peer-to-peer HTTP over WebRTC. Implements an http client wrapper (similar to [HTML fetch](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch)) over WebRTC DataChannel. Allows direct secure access from a web browser to a private web server behind a firewall. 
 
 Highlights:
-- Excutes in safe application space (no `sudo`)
+- Executes in safe application space (no `sudo`)
 - End to end encryption
 - No custom VPN setup needed
 - No cloud middleman for data tunneling
