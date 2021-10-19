@@ -4,6 +4,7 @@ tasks:
       echo "Installing aiortc dependencies"
       apt install libavdevice-dev libavfilter-dev libopus-dev libvpx-dev pkg-config
       echo "Preparing nodejs environment"
+      cd javascript
       npm install
       npm run prepare
       npm update
