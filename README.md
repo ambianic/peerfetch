@@ -1,7 +1,7 @@
 
 # peerfetch
 
-Peer-to-peer HTTP over WebRTC. Implements an http client wrapper (similar to [HTML fetch](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch)) over WebRTC DataChannel. Allows direct secure access from a web browser to edge devices (IoT or servers) hidden behind a firewall. 
+Peer-to-peer HTTP over WebRTC. Implements an http client wrapper (similar to [HTML fetch](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch)) and a corresponding server side HTTP proxy over WebRTC DataChannel. Allows direct secure access from a web browser to edge devices (IoT or servers) hidden behind a firewall. 
 
 Highlights:
 - Excutes in safe application space (no `sudo`)
