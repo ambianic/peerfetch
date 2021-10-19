@@ -26,7 +26,7 @@ tasks:
   - command: |
       echo "Starting http server for local HTML files preview"
       cd javascript
-      npx browser-sync start -s -w      
+      npx browser-sync start --watch --directory --server "../"
 
 ports:
   - port: 8080
