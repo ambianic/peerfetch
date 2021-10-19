@@ -24,6 +24,7 @@ tasks:
       npm run test
   - command: |
       echo "Starting http server for local HTML files preview"
+      cd javascript
       npx browser-sync start -s -w      
 
 ports:

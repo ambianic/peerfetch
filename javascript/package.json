@@ -44,6 +44,7 @@
     "webpack-cli": "^4.9.0"
   },
   "dependencies": {
+    "browser-sync": "^2.27.5",
     "peerjs": "^1.3.2"
   }
 }
