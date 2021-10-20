@@ -20,6 +20,10 @@ See this [README](examples/helloworld/README.md) for a step by step Hello World 
 
 For an in-depth technical discussion and project background, see [this blog post](https://webrtchacks.com/private-home-surveillance-with-the-webrtc-datachannel/).
 
+# Hands-on Workshop
+
+[Here is the recording](https://www.youtube.com/watch?v=LFKYtL1_RjQ) of a `peerfetch` workshop hosted by [Python Austin](https://github.com/Jacob-Barhak/EveningOfPythonCoding).
+
 # Use cases:
 
 - Direct user access from a web app to private home security camera without sharing footage with a cloud provider.
