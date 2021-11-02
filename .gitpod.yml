@@ -10,19 +10,20 @@ tasks:
       npm update
       npm audit fix
     command: |
-      echo "peerfetch Python dev environment:"
-      cd python
-      pyenv global system
-      python3 -m pip install -e ./src
-      echo "Running the peerjfetch Python testsuite:"
-      python3 -m pytest --cov=peerfetch --cov-report=term tests/
-      echo "To start peerjs proxy service:"
-      echo "python3 -m peerfetch.proxy"
-  - command: |
       echo "peerfetch JavaScript:"
       cd javascript
       echo "Running peerfetch JavaScript testsuite:"
       npm run test
+  - init: |
+      echo "peerfetch Python dev environment:"
+      cd python
+      pyenv global system
+      python3 -m pip install -e ./src
+    command: |
+      echo "Running the peerjfetch Python testsuite:"
+      python3 -m pytest --cov=peerfetch --cov-report=term tests/
+      echo "To start peerjs proxy service:"
+      echo "python3 -m peerfetch.proxy"
   - init: |
       echo "Installing browser-sync..."
       npm install -g browser-sync
