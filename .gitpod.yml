@@ -23,7 +23,10 @@ tasks:
       cd javascript
       echo "Running peerfetch JavaScript testsuite:"
       npm run test
-  - command: |
+  - init: |
+      echo "Installing browser-sync..."
+      npm install -g browser-sync
+    command: |
       echo "Starting http server for local HTML files preview"
       cd javascript
       npx browser-sync start --watch --directory --server "../"
