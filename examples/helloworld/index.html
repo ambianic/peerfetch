@@ -13,7 +13,7 @@
 
     <div>
       <span style="font-weight: bold">Remote Peer ID: </span>
-      <input type="text" id="receiver-id" title="Input remote peer ID">
+      <input type="text" id="receiver-id" title="Input remote peer ID"></input>
       <button id="connect-button">Connect</button>
     </div>
 
@@ -25,6 +25,21 @@
         </span>
       </p>
     </div>
+
+
+    <div id="echo_div" style = "display:none">
+      <p>
+        <span style="font-weight: bold">Message: </span>
+        <input type="text" id="say-id" title="Say something to remote peer" value="yoyo"></input>
+        <button id="say-button">Say</button>
+      </p>
+      <p>
+        Remote peer response:
+        <span id="echo_message">
+          ...waiting...
+        </span>
+      </p>
+    </div>
   </p>
 
   <script type="module" async>
@@ -32,16 +47,21 @@
     // Start peer connection on click
     connectButton.addEventListener('click', talkToRemotePeer)
 
+    var sayButton = document.getElementById("say-button")
+    // Send message to remote peer on click
+    sayButton.addEventListener('click', sayToRemotePeer)
+
+    const PeerFetch = window.peerfetch.PeerFetch
+    console.debug(PeerFetch)
+    console.debug(Object.keys(PeerFetch))
+
+    let peerFetch
+
     function talkToRemotePeer() {
-
-      const PeerFetch = window.peerfetch.PeerFetch
-
-      console.debug(PeerFetch)
-      console.debug(Object.keys(PeerFetch))
 
       // initial setup of PeerFetch on the p2p network
       // first, connect to the signaling server (peer registrar)
-      const peerFetch = new PeerFetch({
+      peerFetch = new PeerFetch({
         host: 'ambianic-pnp.herokuapp.com',
         port: 443,
         secure: true,
@@ -58,9 +78,21 @@
           var span = document.getElementById("ui_message")
           span.textContent = msg
         })
+        document.getElementById("echo_div").style.display = "block"
       }).catch((err) => console.error(err))
     }
+
+    function sayToRemotePeer() {
+      // now use peerfetch as a regular HTTP client
+      var sayInput = document.getElementById("say-id")
+      const message = sayInput.value
+      peerFetch.post('http://localhost:8778/api/echo', { message }).then( (response) => {
+        const json = peerFetch.jsonify(response.content)
+        var span = document.getElementById("echo_message")
+        span.textContent = json.message + json.echo + '?!'
+      }).catch((err) => console.error(err))
+    }
+
   </script>
  </body>
 </html>
-

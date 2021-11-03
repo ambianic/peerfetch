@@ -67,13 +67,13 @@ export class PeerFetch {
   /**
    * Ticketing enforces a strict order or processing for pending http requests and corresponding responses.
    * Each async request from client code draws a new ticket.
-   * Tickets are processed in the sequential monotonic order that they are drawn. 
+   * Tickets are processed in the sequential monotonic order that they are drawn.
    * Once a request is fully processed, its ticket is burned and the next ticket is processed.
    * A request ticket is not fully processed until the corresponding final HTTP response is received.
    *
    * /
-    
-  /** 
+
+  /**
    * Incrementing monotonic counter pointing to the next available(unused) ticket number.
    */
   private _nextAvailableTicket = 0
@@ -85,7 +85,7 @@ export class PeerFetch {
   private _nextTicketInLine = 0
 
   /**
-   * 
+   *
    * @param config: PeerOptions provide information such as signaling server host and port.
    */
   constructor (config: Peer.PeerJSOption) {
@@ -94,9 +94,9 @@ export class PeerFetch {
   }
 
   /**
-   * 
+   *
    * Setup connection to a remote peer.
-   * 
+   *
    * @param remotePeerID valid remote peer ID in the p2p network.
    * @returns Promise that either resolves when a connection is established
    *  or throws and exception if connectiion attempt fails.
@@ -145,7 +145,7 @@ export class PeerFetch {
         if (this._myPeerId !== peer.id) {
           console.debug(
             'Signaling server returned new peerID. ',
-            'Old PeerID:', this._myPeerId, 
+            'Old PeerID:', this._myPeerId,
             'New PeerID: ', peer.id
           )
         }
@@ -207,11 +207,11 @@ export class PeerFetch {
       this._setPeerConnectionHandlers(peerConnection, setupResolve, setupReject)
     })
   }
-  
+
   private _setPeerConnectionHandlers (peerConnection: Peer.DataConnection, setupResolve: Function, setupReject: Function) {
     // isSetupResolved indicates whether the setupReady promise has been resolved or rejected
     // to ensure that we resolve/reject the promise only once.
-    let isSetupResolved = false    
+    let isSetupResolved = false
 
     // setup connection progress callbacks
     peerConnection.on('open', () => {
@@ -235,13 +235,13 @@ export class PeerFetch {
       // It needs a moment to be come available after is signals 'open' state.
       setTimeout( () => {
         setupResolve()
-        // schedule keepalive pings to prevent 
+        // schedule keepalive pings to prevent
         // routers from closing the NAT holes during persiod of inactivity
         // between peerfetch requests.
         this._schedulePing()
       }, 1000)
     })
-  
+
     peerConnection.on('close', () => {
       this._peerConnectionStatus = ConnectionStatus.DISCONNECTED
       const msg = 'Peer DataConnection closed.'
@@ -253,9 +253,9 @@ export class PeerFetch {
         setupReject(new Error(msg))
       }
       console.debug('Peer connection is now closed.')
-      this._stopPing()      
+      this._stopPing()
     })
-  
+
     peerConnection.on('error', (err) => {
       this._peerConnectionStatus = ConnectionStatus.ERROR
       const msg = 'Error in connection to remote peer ID: ' + peerConnection.peer
@@ -265,7 +265,7 @@ export class PeerFetch {
         setupReject(new Error(msg))
       }
     })
-  
+
     peerConnection.on('data', (data) => {
       console.debug('Remote Peer Data message received (type %s)',
         typeof (data), { data })
@@ -329,7 +329,7 @@ export class PeerFetch {
 
     console.debug('peerConnection.on(event) handlers all set.')
   }
-  
+
 
   /**
    * Schedule periodic pings to keep the datachannel alive.
@@ -388,7 +388,7 @@ export class PeerFetch {
     const errorMsg = 'response received out of order!'
     const nextTicket = this._nextTicketInLine
     console.assert(
-      ticket === nextTicket, 
+      ticket === nextTicket,
       'ticket parameter has to equal nextTicket',
       { ticket, nextTicket, errorMsg }
     )
@@ -410,16 +410,18 @@ export class PeerFetch {
   * @see {@link https://github.com/axios/axios#axiosrequestconfig}
   * @see {@link https://github.com/axios/axios#request-config}
   */
-  async request ({ url = '/', method = 'GET', params = new Map<string, any>() }): Promise<any> {
-    console.debug('PeerFetch.request entered.', { url, method, params })
+  async request ({ url = '/', json = undefined, data = undefined, method = 'GET', params = new Map<string, any>() }): Promise<any> {
+    console.debug('PeerFetch.request entered.', { url, json, data, method, params })
     var esc = encodeURIComponent
     var query = Object.keys(params)
       .map(k => esc(k) + '=' + esc(params.get(k)))
       .join('&')
     url += '?' + query
-    console.debug('PeerFetch.request', { url, method, query })
+    console.debug('PeerFetch.request', { url, json, data, method, query })
     const request = {
       url,
+      json,
+      data,
       method
     }
     // get a ticket that matches the request
@@ -427,7 +429,7 @@ export class PeerFetch {
     // response when available
     const ticket = this._enqueueRequest(request)
     const response = await this._receiveResponse(ticket)
-    console.debug('PeerFetch.request ended. Returning response:', { url, method, params, response })
+    console.error('PeerFetch.request ended. Returning response:', { url, method, params, response })
     return response
   }
 
@@ -456,11 +458,33 @@ export class PeerFetch {
    * @param {*} data data payload for the PUT request
    * @param {*} config request header options
    */
-  async put (url: string, data: any, config: any) {
+  async put (url: string, data: any, config: any = {}) {
     config.url = url
     config.method = 'PUT'
     config.data = data
     await this.request(config)
+  }
+
+  /**
+   *
+   * Similar to axious post(url, data, [config])
+   *
+   * @see {@link https://github.com/axios/axios#axiosposturl-data-config-1}
+   * @see {@link https://masteringjs.io/tutorials/axios/put}
+   *
+   * @param {*} url resource URL for the PUT request
+   * @param {*} data data payload for the PUT request
+   * @param {*} config request header options
+   */
+  async post (url: string, json: string, data: any, config: any = {}) {
+    console.debug('POST', { url, data, config })
+    config.url = url
+    config.method = 'POST'
+    config.json = json
+    config.data = data
+    const response = this.request(config)
+    console.error('post() received response', { response })
+    return response
   }
 
   /**
@@ -561,7 +585,7 @@ export class PeerFetch {
       let jsonKey: string = "";
       (new Uint8Array(arrayBuffer)).forEach(function (byte: number) {
         decodedString += String.fromCharCode(byte);
-      })  
+      })
     }
     console.debug({ decodedString })
     return decodedString

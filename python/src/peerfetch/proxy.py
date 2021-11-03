@@ -187,16 +187,19 @@ def _setPnPServiceConnectionHandlers(peer=None):
         _setPeerConnectionHandlers(peerConnection)
 
 
-async def _fetch(url: str = None, method: str = 'GET') -> Any:
+async def _fetch(url: str = None, method: str = 'GET', json: str = None, data = None) -> Any:
+    logger.debug(f'_fetch( url="${url}" , method="${method}", data="${data}"')
     global http_session
     if method == 'GET':
         async with http_session.get(url) as response:
             content = await response.read()
-        # response_content = {'name': 'Ambianic-Edge', 'version': '1.24.2020'}
-        # rjson = json.dumps(response_content)
         return response, content
     elif method == 'PUT':
         async with http_session.put(url) as response:
+            content = await response.read()
+        return response, content
+    elif method == 'POST':
+        async with http_session.post(url, json=json, data=data ) as response:
             content = await response.read()
         return response, content
     else:

@@ -44,9 +44,20 @@ app.add_middleware(
 class HelloResponse(BaseModel):
   message: str = "Hello World!"
 
+class SayRequest(BaseModel):
+  message: str = None
+
+class EchoResponse(BaseModel):
+  message: str = "Did you just call me a "
+  echo: str = None
 
 @app.get("/api/hello", response_model=HelloResponse)
 def get_hello():
     """Returns Hello World!."""
     return HelloResponse()
 
+@app.post("/api/echo", response_model=EchoResponse)
+def post_echo(say: SayRequest):
+    """Echoes request."""
+    echo = EchoResponse(echo=say.message)
+    return echo
