@@ -45,7 +45,7 @@
   <script type="module" async>
     var connectButton = document.getElementById("connect-button")
     // Start peer connection on click
-    connectButton.addEventListener('click', talkToRemotePeer)
+    connectButton.addEventListener('click', connectToRemotePeer)
 
     var sayButton = document.getElementById("say-button")
     // Send message to remote peer on click
@@ -57,7 +57,7 @@
 
     let peerFetch
 
-    function talkToRemotePeer() {
+    function connectToRemotePeer() {
 
       // initial setup of PeerFetch on the p2p network
       // first, connect to the signaling server (peer registrar)

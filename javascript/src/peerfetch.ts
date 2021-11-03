@@ -429,7 +429,7 @@ export class PeerFetch {
     // response when available
     const ticket = this._enqueueRequest(request)
     const response = await this._receiveResponse(ticket)
-    console.error('PeerFetch.request ended. Returning response:', { url, method, params, response })
+    console.debug('PeerFetch.request ended. Returning response:', { url, method, params, response })
     return response
   }
 
@@ -483,7 +483,7 @@ export class PeerFetch {
     config.json = json
     config.data = data
     const response = this.request(config)
-    console.error('post() received response', { response })
+    console.debug('post() received response', { response })
     return response
   }
 
