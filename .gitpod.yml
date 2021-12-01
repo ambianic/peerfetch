@@ -34,6 +34,9 @@ tasks:
 
 ports:
   - port: 8080
+  - port: 10-60000
+    onOpen: ignore
+    visibility: public
 
 github:
   prebuilds:
